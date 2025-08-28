@@ -1,46 +1,113 @@
-<!DOCTYPE html>
+
+
+locations = [
+    {"name": "鍾乳洞村", "x": -847, "y": 61, "z": -322},
+    {"name": "仮エントランス", "x": 20, "y": 66, "z": -70},
+    {"name": "ダークファンタジーエリア", "x": 2003, "y": 72, "z": 2176},
+    {"name": "ticking area", "x": 1000, "y": 63, "z": 1000},
+    {"name": "しめくらげ'sモダンタウン", "x": -4974, "y": 63, "z": -4991},
+    {"name": "カオス2区", "x": 236, "y": 68, "z": -128},
+    {"name": "西洋区", "x": -1228, "y": 71, "z": 500},
+    {"name": "現代区", "x": -229, "y": 69, "z": -3039},
+    {"name": "ヨコノロエリア", "x": -1210, "y": 72, "z": -880},
+    {"name": "じぇりあ", "x": 400, "y": 105, "z": 400},
+    {"name": "サーカス遊園地", "x": -4674, "y": 63, "z": -5609},
+    {"name": "スタジアム", "x": -61, "y": 71, "z": 65},
+    {"name": "群玉閣", "x": -112, "y": 182, "z": 380},
+    {"name": "神社", "x": 156, "y": 64, "z": 357},
+    {"name": "戦艦", "x": 433, "y": 92, "z": 783},
+    {"name": "Pochi's House", "x": 1019, "y": 74, "z": 751},
+    {"name": "なつめ's ウーパーハウス", "x": 1033, "y": 69, "z": 425},
+    {"name": "都市公園", "x": -212, "y": 64, "z": 32},
+    {"name": "鳥居", "x": 1680, "y": 80, "z": -1213},
+]
+
+min_x = min(p["x"] for p in locations)
+max_x = max(p["x"] for p in locations)
+min_z = min(p["z"] for p in locations)
+max_z = max(p["z"] for p in locations)
+margin = 500
+
+vb_x = min_x - margin
+vb_y = min_z - margin
+vb_w = (max_x - min_x) + 2 * margin
+vb_h = (max_z - min_z) + 2 * margin
+
+grid = 500
+grid_xs = list(range((min_x // grid - 1) * grid, (max_x // grid + 2) * grid, grid))
+grid_zs = list(range((min_z // grid - 1) * grid, (max_z // grid + 2) * grid, grid))
+
+def esc(s: str) -> str:
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+points_svg = []
+labels_svg = []
+for p in locations:
+    points_svg.append(
+        f'<circle class="poi" cx="{p["x"]}" cy="{p["z"]}" r="40" '
+        f'stroke-width="4" '
+        f'data-name="{esc(p["name"])}" data-x="{p["x"]}" data-y="{p["y"]}" data-z="{p["z"]}">'
+        f'<title>{esc(p["name"])}&#10;{p["x"]} {p["y"]} {p["z"]}</title>'
+        f'</circle>'
+    )
+    labels_svg.append(f'<text class="label" x="{p["x"] + 80}" y="{p["z"]}" font-size="80">{esc(p["name"])}</text>')
+
+grid_svg = []
+for gx in grid_xs:
+    grid_svg.append(f'<line class="grid" x1="{gx}" y1="{vb_y}" x2="{gx}" y2="{vb_y + vb_h}"></line>')
+for gz in grid_zs:
+    grid_svg.append(f'<line class="grid" x1="{vb_x}" y1="{gz}" x2="{vb_x + vb_w}" y2="{gz}"></line>')
+
+axes_svg = [
+    f'<line class="axis" x1="0" y1="{vb_y}" x2="0" y2="{vb_y + vb_h}"></line>',
+    f'<line class="axis" x1="{vb_x}" y1="0" x2="{vb_x + vb_w}" y2="0"></line>',
+]
+
+html = f"""<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Interactive J-Server 2025 Map (X-East, Z-North)</title>
 <style>
-  html, body {
+  html, body {{
     height: 100%;
     margin: 0;
     background: #0f1115;
     color: #eaeaea;
     font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Noto Sans CJK JP', 'Noto Sans JP', sans-serif;
-  }
-  #container {
+  }}
+  #container {{
     height: 100%;
     display: grid;
-    grid-template-rows: auto auto 1fr;
-  }
-  #toolbar, #toolbar2 {
+    grid-template-rows: auto auto auto 1fr;
+  }}
+  #toolbar, #toolbar2, #toolbarZoom {{
     display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
     padding: 10px 12px; background: #161a22; border-bottom: 1px solid #2a3140;
-  }
-  #toolbar2 { position: sticky; top: 48px; z-index: 2; }
+  }}
+  #toolbar2 {{ position: sticky; top: 48px; z-index: 3; }}
+  #toolbarZoom {{ position: sticky; top: 96px; z-index: 3; }}
   #toolbar select, #toolbar button, #toolbar input[type="checkbox"],
-  #toolbar2 input[type="range"], #toolbar2 label, #toolbar2 input[type="checkbox"] {
+  #toolbar2 input[type="range"], #toolbar2 label, #toolbar2 input[type="checkbox"],
+  #toolbarZoom input[type="range"], #toolbarZoom label {{
     background: #0f1115; color: #eaeaea; border: 1px solid #2a3140;
     padding: 6px 8px; border-radius: 8px;
-  }
-  #toolbar button { cursor: pointer; }
-  #mapwrap { position: relative; overflow: hidden; }
-  svg { width: 100%; height: 100%; display: block; background: #0b0d11;
-        cursor: grab; user-select: none; }
-  svg:active { cursor: grabbing; }
-  .grid { stroke: #2a3140; stroke-width: 1; }
-  .axis { stroke: #98a2b3; stroke-width: 2; }
-  .poi { fill: #eaeaea; fill-opacity: 0.9; stroke: #0b0d11; }
-  .label { fill: #eaeaea; paint-order: stroke; stroke: #0b0d11; stroke-width: 16px; dominant-baseline: middle; }
-  .hud { position: absolute; right: 14px; top: 14px; background: rgba(22,26,34,0.8);
-          border: 1px solid #2a3140; padding: 8px 10px; border-radius: 10px; font-size: 12px; line-height: 1.4; }
-  .range-group { display: flex; align-items: center; gap: 8px; }
-  .range-group input[type="range"] { width: 180px; }
-  .hint { opacity:.8; margin-left:auto; border: none; padding:0; background:transparent; }
+  }}
+  #toolbar button {{ cursor: pointer; }}
+  #mapwrap {{ position: relative; overflow: hidden; }}
+  svg {{ width: 100%; height: 100%; display: block; background: #0b0d11;
+        cursor: grab; user-select: none; }}
+  svg:active {{ cursor: grabbing; }}
+  .grid {{ stroke: #2a3140; stroke-width: 1; }}
+  .axis {{ stroke: #98a2b3; stroke-width: 2; }}
+  .poi {{ fill: #eaeaea; fill-opacity: 0.9; stroke: #0b0d11; }}
+  .label {{ fill: #eaeaea; paint-order: stroke; stroke: #0b0d11; stroke-width: 16px; dominant-baseline: middle; }}
+  .hud {{ position: absolute; right: 14px; top: 14px; background: rgba(22,26,34,0.8);
+          border: 1px solid #2a3140; padding: 8px 10px; border-radius: 10px; font-size: 12px; line-height: 1.4; }}
+  .range-group {{ display: flex; align-items: center; gap: 8px; }}
+  .range-group input[type="range"] {{ width: 220px; }}
+  .hint {{ opacity:.8; margin-left:auto; border: none; padding:0; background:transparent; }}
 </style>
 </head>
 <body>
@@ -49,7 +116,7 @@
     <label>ジャンプ:
       <select id="jumper">
         <option value="">— 場所を選択 —</option>
-        <option value="{x:-847,y:61,z:-322}">鍾乳洞村</option><option value="{x:20,y:66,z:-70}">仮エントランス</option><option value="{x:2003,y:72,z:2176}">ダークファンタジーエリア</option><option value="{x:1000,y:63,z:1000}">ticking area</option><option value="{x:-4974,y:63,z:-4991}">しめくらげ'sモダンタウン</option><option value="{x:236,y:68,z:-128}">カオス2区</option><option value="{x:-1228,y:71,z:500}">西洋区</option><option value="{x:-229,y:69,z:-3039}">現代区</option><option value="{x:-1210,y:72,z:-880}">ヨコノロエリア</option><option value="{x:400,y:105,z:400}">じぇりあ</option><option value="{x:-4674,y:63,z:-5609}">サーカス遊園地</option><option value="{x:-61,y:71,z:65}">スタジアム</option><option value="{x:-112,y:182,z:380}">群玉閣</option><option value="{x:156,y:64,z:357}">神社</option><option value="{x:433,y:92,z:783}">戦艦</option><option value="{x:1019,y:74,z:751}">Pochi's House</option><option value="{x:1033,y:69,z:425}">なつめ's ウーパーハウス</option><option value="{x:-212,y:64,z:32}">都市公園</option><option value="{x:1680,y:80,z:-1213}">鳥居</option>
+        {"".join(f'<option value="{{x:{p["x"]},y:{p["y"]},z:{p["z"]}}}">{esc(p["name"])}</option>' for p in locations)}
       </select>
     </label>
     <button id="resetBtn">リセット</button>
@@ -85,33 +152,41 @@
     </label>
   </div>
 
+  <div id="toolbarZoom">
+    <div class="range-group">
+      <label for="zoomRange">ズーム</label>
+      <input type="range" id="zoomRange" min="0.25" max="8.00" step="0.01" value="1.00">
+      <span id="zoomVal">100%</span>
+    </div>
+  </div>
+
   <div id="mapwrap">
-    <svg id="map" viewBox="-5474 -6109 7977 8785" preserveAspectRatio="xMidYMid meet">
+    <svg id="map" viewBox="{vb_x} {vb_y} {vb_w} {vb_h}" preserveAspectRatio="xMidYMid meet">
       <defs>
         <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
           <path d="M 0 0 L 10 5 L 0 10 z" fill="#98a2b3" />
         </marker>
       </defs>
       <g id="layer-grid">
-        <line class="grid" x1="-5500" y1="-6109" x2="-5500" y2="2676"></line><line class="grid" x1="-5000" y1="-6109" x2="-5000" y2="2676"></line><line class="grid" x1="-4500" y1="-6109" x2="-4500" y2="2676"></line><line class="grid" x1="-4000" y1="-6109" x2="-4000" y2="2676"></line><line class="grid" x1="-3500" y1="-6109" x2="-3500" y2="2676"></line><line class="grid" x1="-3000" y1="-6109" x2="-3000" y2="2676"></line><line class="grid" x1="-2500" y1="-6109" x2="-2500" y2="2676"></line><line class="grid" x1="-2000" y1="-6109" x2="-2000" y2="2676"></line><line class="grid" x1="-1500" y1="-6109" x2="-1500" y2="2676"></line><line class="grid" x1="-1000" y1="-6109" x2="-1000" y2="2676"></line><line class="grid" x1="-500" y1="-6109" x2="-500" y2="2676"></line><line class="grid" x1="0" y1="-6109" x2="0" y2="2676"></line><line class="grid" x1="500" y1="-6109" x2="500" y2="2676"></line><line class="grid" x1="1000" y1="-6109" x2="1000" y2="2676"></line><line class="grid" x1="1500" y1="-6109" x2="1500" y2="2676"></line><line class="grid" x1="2000" y1="-6109" x2="2000" y2="2676"></line><line class="grid" x1="2500" y1="-6109" x2="2500" y2="2676"></line><line class="grid" x1="-5474" y1="-6500" x2="2503" y2="-6500"></line><line class="grid" x1="-5474" y1="-6000" x2="2503" y2="-6000"></line><line class="grid" x1="-5474" y1="-5500" x2="2503" y2="-5500"></line><line class="grid" x1="-5474" y1="-5000" x2="2503" y2="-5000"></line><line class="grid" x1="-5474" y1="-4500" x2="2503" y2="-4500"></line><line class="grid" x1="-5474" y1="-4000" x2="2503" y2="-4000"></line><line class="grid" x1="-5474" y1="-3500" x2="2503" y2="-3500"></line><line class="grid" x1="-5474" y1="-3000" x2="2503" y2="-3000"></line><line class="grid" x1="-5474" y1="-2500" x2="2503" y2="-2500"></line><line class="grid" x1="-5474" y1="-2000" x2="2503" y2="-2000"></line><line class="grid" x1="-5474" y1="-1500" x2="2503" y2="-1500"></line><line class="grid" x1="-5474" y1="-1000" x2="2503" y2="-1000"></line><line class="grid" x1="-5474" y1="-500" x2="2503" y2="-500"></line><line class="grid" x1="-5474" y1="0" x2="2503" y2="0"></line><line class="grid" x1="-5474" y1="500" x2="2503" y2="500"></line><line class="grid" x1="-5474" y1="1000" x2="2503" y2="1000"></line><line class="grid" x1="-5474" y1="1500" x2="2503" y2="1500"></line><line class="grid" x1="-5474" y1="2000" x2="2503" y2="2000"></line><line class="grid" x1="-5474" y1="2500" x2="2503" y2="2500"></line>
-        <line class="axis" x1="0" y1="-6109" x2="0" y2="2676"></line><line class="axis" x1="-5474" y1="0" x2="2503" y2="0"></line>
+        {"".join(grid_svg)}
+        {"".join(axes_svg)}
       </g>
       <g id="layer-points">
-        <circle class="poi" cx="-847" cy="-322" r="40" stroke-width="4" data-name="鍾乳洞村" data-x="-847" data-y="61" data-z="-322"><title>鍾乳洞村&#10;-847 61 -322</title></circle><circle class="poi" cx="20" cy="-70" r="40" stroke-width="4" data-name="仮エントランス" data-x="20" data-y="66" data-z="-70"><title>仮エントランス&#10;20 66 -70</title></circle><circle class="poi" cx="2003" cy="2176" r="40" stroke-width="4" data-name="ダークファンタジーエリア" data-x="2003" data-y="72" data-z="2176"><title>ダークファンタジーエリア&#10;2003 72 2176</title></circle><circle class="poi" cx="1000" cy="1000" r="40" stroke-width="4" data-name="ticking area" data-x="1000" data-y="63" data-z="1000"><title>ticking area&#10;1000 63 1000</title></circle><circle class="poi" cx="-4974" cy="-4991" r="40" stroke-width="4" data-name="しめくらげ'sモダンタウン" data-x="-4974" data-y="63" data-z="-4991"><title>しめくらげ'sモダンタウン&#10;-4974 63 -4991</title></circle><circle class="poi" cx="236" cy="-128" r="40" stroke-width="4" data-name="カオス2区" data-x="236" data-y="68" data-z="-128"><title>カオス2区&#10;236 68 -128</title></circle><circle class="poi" cx="-1228" cy="500" r="40" stroke-width="4" data-name="西洋区" data-x="-1228" data-y="71" data-z="500"><title>西洋区&#10;-1228 71 500</title></circle><circle class="poi" cx="-229" cy="-3039" r="40" stroke-width="4" data-name="現代区" data-x="-229" data-y="69" data-z="-3039"><title>現代区&#10;-229 69 -3039</title></circle><circle class="poi" cx="-1210" cy="-880" r="40" stroke-width="4" data-name="ヨコノロエリア" data-x="-1210" data-y="72" data-z="-880"><title>ヨコノロエリア&#10;-1210 72 -880</title></circle><circle class="poi" cx="400" cy="400" r="40" stroke-width="4" data-name="じぇりあ" data-x="400" data-y="105" data-z="400"><title>じぇりあ&#10;400 105 400</title></circle><circle class="poi" cx="-4674" cy="-5609" r="40" stroke-width="4" data-name="サーカス遊園地" data-x="-4674" data-y="63" data-z="-5609"><title>サーカス遊園地&#10;-4674 63 -5609</title></circle><circle class="poi" cx="-61" cy="65" r="40" stroke-width="4" data-name="スタジアム" data-x="-61" data-y="71" data-z="65"><title>スタジアム&#10;-61 71 65</title></circle><circle class="poi" cx="-112" cy="380" r="40" stroke-width="4" data-name="群玉閣" data-x="-112" data-y="182" data-z="380"><title>群玉閣&#10;-112 182 380</title></circle><circle class="poi" cx="156" cy="357" r="40" stroke-width="4" data-name="神社" data-x="156" data-y="64" data-z="357"><title>神社&#10;156 64 357</title></circle><circle class="poi" cx="433" cy="783" r="40" stroke-width="4" data-name="戦艦" data-x="433" data-y="92" data-z="783"><title>戦艦&#10;433 92 783</title></circle><circle class="poi" cx="1019" cy="751" r="40" stroke-width="4" data-name="Pochi's House" data-x="1019" data-y="74" data-z="751"><title>Pochi's House&#10;1019 74 751</title></circle><circle class="poi" cx="1033" cy="425" r="40" stroke-width="4" data-name="なつめ's ウーパーハウス" data-x="1033" data-y="69" data-z="425"><title>なつめ's ウーパーハウス&#10;1033 69 425</title></circle><circle class="poi" cx="-212" cy="32" r="40" stroke-width="4" data-name="都市公園" data-x="-212" data-y="64" data-z="32"><title>都市公園&#10;-212 64 32</title></circle><circle class="poi" cx="1680" cy="-1213" r="40" stroke-width="4" data-name="鳥居" data-x="1680" data-y="80" data-z="-1213"><title>鳥居&#10;1680 80 -1213</title></circle>
+        {"".join(points_svg)}
       </g>
       <g id="layer-labels">
-        <text class="label" x="-767" y="-322" font-size="80">鍾乳洞村</text><text class="label" x="100" y="-70" font-size="80">仮エントランス</text><text class="label" x="2083" y="2176" font-size="80">ダークファンタジーエリア</text><text class="label" x="1080" y="1000" font-size="80">ticking area</text><text class="label" x="-4894" y="-4991" font-size="80">しめくらげ'sモダンタウン</text><text class="label" x="316" y="-128" font-size="80">カオス2区</text><text class="label" x="-1148" y="500" font-size="80">西洋区</text><text class="label" x="-149" y="-3039" font-size="80">現代区</text><text class="label" x="-1130" y="-880" font-size="80">ヨコノロエリア</text><text class="label" x="480" y="400" font-size="80">じぇりあ</text><text class="label" x="-4594" y="-5609" font-size="80">サーカス遊園地</text><text class="label" x="19" y="65" font-size="80">スタジアム</text><text class="label" x="-32" y="380" font-size="80">群玉閣</text><text class="label" x="236" y="357" font-size="80">神社</text><text class="label" x="513" y="783" font-size="80">戦艦</text><text class="label" x="1099" y="751" font-size="80">Pochi's House</text><text class="label" x="1113" y="425" font-size="80">なつめ's ウーパーハウス</text><text class="label" x="-132" y="32" font-size="80">都市公園</text><text class="label" x="1760" y="-1213" font-size="80">鳥居</text>
+        {"".join(labels_svg)}
       </g>
       <g id="north-arrow">
-        <line id="north-line" x1="-5354" y1="-5969" x2="-5354" y2="-6069" stroke="#98a2b3" stroke-width="8" marker-end="url(#arrow)"></line>
-        <text id="north-text" x="-5334" y="-6049" fill="#98a2b3" font-size="80">N</text>
+        <line id="north-line" x1="{vb_x + 120}" y1="{vb_y + 140}" x2="{vb_x + 120}" y2="{vb_y + 40}" stroke="#98a2b3" stroke-width="8" marker-end="url(#arrow)"></line>
+        <text id="north-text" x="{vb_x + 140}" y="{vb_y + 60}" fill="#98a2b3" font-size="80">N</text>
       </g>
     </svg>
     <div class="hud" id="hud">X: —, Z: —</div>
   </div>
 </div>
 <script>
-(() => {
+(() => {{
   const svg = document.getElementById('map');
   const layerLabels = document.getElementById('layer-labels');
   const layerPoints = document.getElementById('layer-points');
@@ -130,43 +205,58 @@
   const strokeVal = document.getElementById('strokeVal');
   const autoScale = document.getElementById('autoScale');
 
+  const zoomRange = document.getElementById('zoomRange');
+  const zoomVal   = document.getElementById('zoomVal');
+
   const DEFAULT_Y = 100;
 
   const initVB = svg.viewBox.baseVal;
-  let vb = { x: initVB.x, y: initVB.y, w: initVB.width, h: initVB.height };
-  const vb0 = { ...vb }; // for scale comparison
+  let vb = {{ x: initVB.x, y: initVB.y, w: initVB.width, h: initVB.height }};
+  const vb0 = {{ ...vb }};
 
-  function setVB(x, y, w, h) {
-    svg.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
-    vb = { x, y, w, h };
-    // Move north arrow base position to top-left of current viewBox
+  function setVB(x, y, w, h) {{
+    svg.setAttribute('viewBox', `${{x}} ${{y}} ${{w}} ${{h}}`);
+    vb = {{ x, y, w, h }};
     const nl = document.getElementById('north-line');
     const nt = document.getElementById('north-text');
     const baseX = x + 120;
     const baseY = y + 140;
     nl.setAttribute('x1', baseX);
     nl.setAttribute('y1', baseY);
-    // y2 set by applySizes (depends on length)
     nt.setAttribute('x', baseX + 20);
-    // y set by applySizes too
-    applySizes(); // keep sizes consistent if auto scaling is enabled
-  }
+    applySizes();
+    updateZoomUI();
+  }}
 
-  function clientToWorld(evt) {
+  function clientToWorld(evt) {{
     const rect = svg.getBoundingClientRect();
     const px = (evt.clientX - rect.left) / rect.width;
     const py = (evt.clientY - rect.top) / rect.height;
     const wx = vb.x + px * vb.w;
-    const wy = vb.y + py * vb.h; // wy is world Z
+    const wy = vb.y + py * vb.h;
     return [wx, wy];
-  }
+  }}
 
-  function currentZoomScale() {
-    return vb.w / vb0.w; // <1 = zoom-in, >1 = zoom-out relative to initial
-  }
+  function currentMagnification() {{
+    return vb0.w / vb.w;
+  }}
 
-  function applySizes() {
-    const scale = autoScale.checked ? currentZoomScale() : 1;
+  function setMagnification(m) {{
+    const cx = vb.x + vb.w / 2;
+    const cy = vb.y + vb.h / 2;
+    const nw = vb0.w / m;
+    const nh = vb0.h / m;
+    setVB(cx - nw / 2, cy - nh / 2, nw, nh);
+  }}
+
+  function updateZoomUI() {{
+    const m = currentMagnification();
+    zoomRange.value = m.toFixed(3);
+    zoomVal.textContent = Math.round(m * 100) + '%';
+  }}
+
+  function applySizes() {{
+    const scale = autoScale.checked ? (vb.w / vb0.w) : 1;
     const r  = parseFloat(radiusRange.value) * scale;
     const fs = parseFloat(labelRange.value) * scale;
     const al = parseFloat(arrowRange.value) * scale;
@@ -177,19 +267,16 @@
     arrowVal.textContent  = Math.round(parseFloat(arrowRange.value));
     strokeVal.textContent = Math.round(parseFloat(strokeRange.value));
 
-    // Points: radius & stroke width
-    document.querySelectorAll('#layer-points .poi').forEach(c => {
+    document.querySelectorAll('#layer-points .poi').forEach(c => {{
       c.setAttribute('r', r);
-      c.setAttribute('stroke-width', sw * 0.5);
-    });
+      c.setAttribute('stroke-width', Math.max(1, sw * 0.5));
+    }});
 
-    // Labels: font-size attribute in world units so it scales with zoom; stroke width follow sw
-    document.querySelectorAll('#layer-labels text').forEach(t => {
+    document.querySelectorAll('#layer-labels text').forEach(t => {{
       t.setAttribute('font-size', fs);
-      t.setAttribute('stroke-width', Math.max(2, sw)); // keep readable
-    });
+      t.setAttribute('stroke-width', Math.max(2, sw));
+    }});
 
-    // North arrow length & stroke width & label pos
     const nl = document.getElementById('north-line');
     const nt = document.getElementById('north-text');
     const x1 = parseFloat(nl.getAttribute('x1'));
@@ -198,19 +285,16 @@
     nl.setAttribute('y2', y1 - al);
     nl.setAttribute('stroke-width', sw);
 
-    // Arrow head size via marker (userSpaceOnUse)
     const marker = document.getElementById('arrow');
     const headSize = Math.max(8, sw * 3);
     marker.setAttribute('markerWidth', headSize);
     marker.setAttribute('markerHeight', headSize);
 
-    // "N" text near arrow head
     nt.setAttribute('y', y1 - al + headSize * 0.6);
     nt.setAttribute('font-size', fs);
-  }
+  }}
 
-  // Wheel zoom
-  svg.addEventListener('wheel', (e) => {
+  svg.addEventListener('wheel', (e) => {{
     e.preventDefault();
     const [cx, cy] = clientToWorld(e);
     const factor = (e.deltaY > 0) ? 1.15 : 1/1.15;
@@ -221,74 +305,91 @@
     const nx = cx - rx * nw;
     const ny = cy - ry * nh;
     setVB(nx, ny, nw, nh);
-  }, { passive: false });
+  }}, {{ passive: false }});
 
-  // Drag pan
   let dragging = false;
   let startWorld = null;
-  svg.addEventListener('mousedown', (e) => {
+  svg.addEventListener('mousedown', (e) => {{
     dragging = true;
     startWorld = clientToWorld(e);
-  });
+  }});
   window.addEventListener('mouseup', () => dragging = false);
-  svg.addEventListener('mousemove', (e) => {
+  svg.addEventListener('mousemove', (e) => {{
     const [wx, wy] = clientToWorld(e);
-    hud.textContent = `X: ${wx.toFixed(1)}, Z: ${wy.toFixed(1)}`;
+    hud.textContent = `X: ${{wx.toFixed(1)}}, Z: ${{wy.toFixed(1)}}`;
     if (!dragging || !startWorld) return;
     const dx = startWorld[0] - wx;
     const dy = startWorld[1] - wy;
     setVB(vb.x + dx, vb.y + dy, vb.w, vb.h);
-  });
+  }});
 
-  // Click to copy: "X Y Z"
-  svg.addEventListener('click', (e) => {
+  svg.addEventListener('click', (e) => {{
     const target = e.target;
     let txt;
-    if (target.classList && target.classList.contains('poi')) {
+    if (target.classList && target.classList.contains('poi')) {{
       const x = target.getAttribute('data-x');
       const y = target.getAttribute('data-y');
       const z = target.getAttribute('data-z');
-      txt = `${x} ${y} ${z}`;
-    } else {
+      txt = `${{x}} ${{y}} ${{z}}`;
+    }} else {{
       const [wx, wy] = clientToWorld(e);
-      txt = `${Math.round(wx)} 100 ${Math.round(wy)}`;
-    }
+      txt = `${{Math.round(wx)}} 100 ${{Math.round(wy)}}`;
+    }}
     navigator.clipboard?.writeText(txt);
     hud.textContent = txt + '（コピーしました）';
     setTimeout(() => hud.textContent = txt, 1000);
-  });
+  }});
 
-  // Toggle labels
-  toggleLabels.addEventListener('change', () => {
+  toggleLabels.addEventListener('change', () => {{
     layerLabels.style.display = toggleLabels.checked ? 'block' : 'none';
-  });
+  }});
 
-  // Reset
-  resetBtn.addEventListener('click', () => {
-    setVB(-5474, -6109, 7977, 8785);
-  });
+  resetBtn.addEventListener('click', () => {{
+    setVB({vb_x}, {vb_y}, {vb_w}, {vb_h});
+  }});
 
-  // Jump
-  select.addEventListener('change', () => {
+  select.addEventListener('change', () => {{
     const val = select.value;
     if (!val) return;
     const obj = JSON.parse(val.replace(/([a-zA-Z]+):/g, '"$1":'));
     const cx = obj.x, cz = obj.z;
-    const scale = 3;
-    const nw = 7977 / scale;
-    const nh = 8785 / scale;
+    const m = 3;
+    const nw = {vb_w} / m;
+    const nh = {vb_h} / m;
     setVB(cx - nw/2, cz - nh/2, nw, nh);
-  });
+  }});
 
-  // Range handlers
-  [radiusRange, labelRange, arrowRange, strokeRange, autoScale].forEach(el => {
+  function onZoomSlider() {{
+    const m = parseFloat(zoomRange.value);
+    // Keep center when applying magnification
+    const cx = vb.x + vb.w / 2;
+    const cy = vb.y + vb.h / 2;
+    const nw = {vb_w} / m;
+    const nh = {vb_h} / m;
+    setVB(cx - nw/2, cy - nh/2, nw, nh);
+  }}
+  zoomRange.addEventListener('input', onZoomSlider);
+  zoomRange.addEventListener('change', onZoomSlider);
+
+  [radiusRange, labelRange, arrowRange, strokeRange, autoScale].forEach(el => {{
     el.addEventListener('input', applySizes);
     el.addEventListener('change', applySizes);
-  });
+  }});
 
-  // Initial apply
   applySizes();
-})();
+  // Sync zoom UI initially
+  (function initZoomUI() {{
+    zoomRange.value = "1.00";
+    zoomVal.textContent = "100%";
+  }})();
+}})();
 </script>
 </body>
 </html>
+"""
+
+out_path = "/mnt/data/jserver_map_interactive.html"
+with open(out_path, "w", encoding="utf-8") as f:
+    f.write(html)
+
+out_path
